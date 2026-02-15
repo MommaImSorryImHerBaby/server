@@ -1,6 +1,6 @@
 import  socket
 import  threading
-import  json
+import  ssl
 
 from    dataclasses import dataclass
 from    dataclasses import field
@@ -47,7 +47,11 @@ class Auschwitz: # sob nigga
         client.close()
 
     def __post_init__(self):
+        context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+        context.load_cert_chain(certfile='server.crt', keyfile='server.key')
+        
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)         # create server socket
+        self.server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.server.bind((self.host, self.port))
         self.server.listen()                                                    # start listening
         # dbg
@@ -55,10 +59,11 @@ class Auschwitz: # sob nigga
         
         while True:
             client_socket, address = self.server.accept()
+            secure_socket = context.wrap_socket(client_socket, server_side=True)
             # append the incoming client to the ar
-            self.clients.append(client_socket)
+            self.clients.append(secure_socket)
             # strart the handler thread
-            thread = threading.Thread(target=self.handle_client, args=[client_socket, address])
+            thread = threading.Thread(target=self.handle_client, args=[secure_socket, address])
             thread.daemon = True
             thread.start()
             # dbg
