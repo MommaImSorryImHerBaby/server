@@ -32,19 +32,44 @@ class Auschwitz: # sob nigga
         print(f"[+] connection from {address}")
 
         while True:
-            try: # decode the incoming JSON as a string
-                self.decoded_string = client.recv(1024).decode('utf-8')
-                # check if its vlaid
+            try:
+                # read 4-byte length prefix
+                length_bytes = b''
+                while len(length_bytes) < 4:
+                    chunk = client.recv(4 - len(length_bytes))
+                    if not chunk:
+                        break
+                    length_bytes += chunk
+                
+                if len(length_bytes) < 4:
+                    break
+                    
+                msg_length = int.from_bytes(length_bytes, 'big')
+                
+                # read exact message length
+                msg_data = b''
+                while len(msg_data) < msg_length:
+                    chunk = client.recv(min(4096, msg_length - len(msg_data)))
+                    if not chunk:
+                        break
+                    msg_data += chunk
+                
+                if len(msg_data) < msg_length:
+                    break
+                
+                self.decoded_string = msg_data.decode('utf-8')
+                # check if its valid
                 if self.decoded_string:
                     print(f'[{address}] [{self.decoded_string}]')
                     # broadcast encoded msg 2 everyone
                     self.broadcast(self.decoded_string.encode('utf-8'), client)
                 else:
-                    break 
+                    break
             except:
                 break
+                
         print(f'[DISCONNECT] {address}')
-        # close socke
+        # close socket
         self.clients.remove(client)
         client.close()
 
