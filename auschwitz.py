@@ -7,7 +7,7 @@ from    dataclasses import field
 
 @dataclass
 class Auschwitz: # sob nigga
-    host    :     str  = "127.0.0.1"  
+    host    :     str  = "0.0.0.0"  
     port    :     int  = 5001
     clients :     list = field(default_factory=list, init=False)
     
@@ -21,7 +21,9 @@ class Auschwitz: # sob nigga
             # a message to the person who sent it.
             if client != sender_socket:
                 try: # broadcast it toclient
-                    client.send(message)
+                    msg_bytes = message if isinstance(message, bytes) else message.encode('utf-8')
+                    length = len(msg_bytes)
+                    client.send(length.to_bytes(4, 'big') + msg_bytes)
                 except:
                     self.clients.remove(client)
 
