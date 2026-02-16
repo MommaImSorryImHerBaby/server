@@ -1,3 +1,4 @@
+from __future__ import annotations
 import  socket
 import  threading
 import  ssl
@@ -107,3 +108,4 @@ class Auschwitz: # sob nigga
 
 if __name__ == '__main__':
     Auschwitz()
+
