@@ -77,24 +77,31 @@ class Auschwitz: # sob nigga
         context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
         context.load_cert_chain(certfile='server.crt', keyfile='server.key')
         
-        self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)         # create server socket
+        self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.server.bind((self.host, self.port))
-        self.server.listen()                                                    # start listening
-        # dbg
+        self.server.listen()
         print(f"[+] Server Started On {self.host}:{self.port}")
         
         while True:
-            client_socket, address = self.server.accept()
-            secure_socket = context.wrap_socket(client_socket, server_side=True)
-            # append the incoming client to the ar
-            self.clients.append(secure_socket)
-            # strart the handler thread
-            thread = threading.Thread(target=self.handle_client, args=[secure_socket, address])
-            thread.daemon = True
-            thread.start()
-            # dbg
-            print(f'[ACTIVE CONNECTIONS] {threading.active_count() - 1}')                    
+            try:
+                client_socket, address = self.server.accept()
+                secure_socket = context.wrap_socket(client_socket, server_side=True)
+                
+                self.clients.append(secure_socket)
+                thread = threading.Thread(target=self.handle_client, args=[secure_socket, address])
+                thread.daemon = True
+                thread.start()
+                print(f'[ACTIVE CONNECTIONS] {threading.active_count() - 1}')
+                
+            except ssl.SSLError as e:
+                print(f'[SSL ERROR] {address}: {e}')
+                try:
+                    client_socket.close()
+                except:
+                    pass
+            except Exception as e:
+                print(f'[ERROR] {e}')                   
 
 
 
