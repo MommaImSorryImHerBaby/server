@@ -1,22 +1,58 @@
-# -- Aushcwitz.py --
+# -- server.py --
 
 # for type hinting self 
 from __future__ import annotations 
 # imports
+import  os 
 import  socket
 import  threading
 import  ssl
+import  base64
+import  typing
 import  json
 
-SECRET_KEY = "tb_is_yuris_son"
+SECRET_KEY = 'tb_is_yuris_son'
+ENCRYPTION_KEY = 'p62oJMUBM9eth7shDT2qOg=='
 
 from dataclasses import dataclass
 from dataclasses import field
+# AES encryption
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+def encrypt_outgoing_event(obj: dict[str, typing.Any]) -> dict[str, str]:
+    # decode the key  
+    key = base64.b64decode(ENCRYPTION_KEY)
+    # dump the json object
+    data = json.dumps(obj).encode('utf-8')
+    # gen the nonce
+    nonce     = os.urandom(12)
+    # encrypt JSON
+    ciphertxt = AESGCM(key).encrypt(nonce, data, None)
+    # encode bytes
+    encr_data = nonce + ciphertxt
+    decoded   = base64.b64encode(encr_data).decode('utf-8')
+    # return the bundled object
+    return {
+        'encrypted': decoded
+    }
+
+def decrypt_incoming_event(event: dict[str, str]) -> dict[str, typing.Any]:
+    # decode the key
+    key      = base64.b64decode(ENCRYPTION_KEY)
+    contents = base64.b64decode(event['encrypted'])
+    # split the first 12 bytes from the encryptedtxt
+    nonce    = contents[:12]
+    ciphertxt = contents[12:]
+    plaintext = AESGCM(key).decrypt(nonce, ciphertxt, None)
+    # return the loaded event
+    return json.loads(plaintext)
+
+
 
 @dataclass
-class Auschwitz: # sob nigga
-    host: str  = "0.0.0.0"  
-    port: int  = 5001
+class Auschwitz:
+    host: str = "0.0.0.0"  
+    port: int = 5001
     clients: list = field(default_factory=list, init=False)
     
     
@@ -28,7 +64,7 @@ class Auschwitz: # sob nigga
             # is the sender_socket, we dont want to send
             # a message to the person who sent it.
             if client != sender_socket:
-                try: # broadcast it toclient
+                try: # broadcast it to client
                     msg_bytes = message if isinstance(message, bytes) else message.encode('utf-8')
                     length = len(msg_bytes)
                     client.send(length.to_bytes(4, 'big') + msg_bytes)
@@ -95,7 +131,7 @@ class Auschwitz: # sob nigga
                 # check if its valid
                 if self.decoded_string:
                     print(f'[{address}] [{self.decoded_string}]')
-                    # broadcast encoded msg 2 everyone
+                    # broadcast encoded msg to everyone
                     self.broadcast(self.decoded_string.encode('utf-8'), client)
                 else:
                     break
@@ -103,6 +139,14 @@ class Auschwitz: # sob nigga
                 break
                 
         print(f'[DISCONNECT] {address}')
+
+        # broadcast a disconnect event to all clients
+        disconnect_event = encrypt_outgoing_event({
+            'opcode':  6767,
+            'address': address
+        })
+        self.broadcast(json.dumps(disconnect_event), client)
+
         # close socket
         self.clients.remove(client)
         client.close()
