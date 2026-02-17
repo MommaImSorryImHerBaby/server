@@ -1,16 +1,23 @@
-from __future__ import annotations
+# -- Aushcwitz.py --
+
+# for type hinting self 
+from __future__ import annotations 
+# imports
 import  socket
 import  threading
 import  ssl
+import  json
 
-from    dataclasses import dataclass
-from    dataclasses import field
+SECRET_KEY = "tb_is_yuris_son"
+
+from dataclasses import dataclass
+from dataclasses import field
 
 @dataclass
 class Auschwitz: # sob nigga
-    host    :     str  = "0.0.0.0"  
-    port    :     int  = 5001
-    clients :     list = field(default_factory=list, init=False)
+    host: str  = "0.0.0.0"  
+    port: int  = 5001
+    clients: list = field(default_factory=list, init=False)
     
     
     def broadcast(self: Auschwitz, message: str, sender_socket: socket.socket):
@@ -31,6 +38,32 @@ class Auschwitz: # sob nigga
     def handle_client(self: Auschwitz, client: socket.socket, address: str):
         # method to handle incoming msgs
         print(f"[+] connection from {address}")
+
+        try:
+            length_bytes = b''
+            while len(length_bytes) < 4:
+                chunk = client.recv(4 - len(length_bytes))
+                if not chunk:
+                    break
+                length_bytes += chunk
+            msg_length = int.from_bytes(length_bytes, 'big')
+            msg_data   = b''
+            while len(msg_data) < msg_length:
+                chunk = client.recv(min(4096, msg_length - len(msg_data)))
+                if not chunk:
+                    break
+                msg_data += chunk
+            auth = json.loads(msg_data.decode('utf-8'))
+            if auth.get('key') != SECRET_KEY:
+                print(f'[AUTH FAILED] {address}')
+                client.close()
+                self.clients.remove(client)
+                return
+            print(f'[AUTH OK] {address}')
+        except:
+            client.close()
+            self.clients.remove(client)
+            return
 
         while True:
             try:
@@ -108,4 +141,3 @@ class Auschwitz: # sob nigga
 
 if __name__ == '__main__':
     Auschwitz()
-
